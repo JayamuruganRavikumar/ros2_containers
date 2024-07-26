@@ -17,9 +17,9 @@
 
 ### Jetsons
 
-To run containers on jetons use [jetson-Containers](https://github.com/dusty-nv/jetson-containers.git) package.
+To run containers on jetons use [jetson-containers](https://github.com/dusty-nv/jetson-containers.git) package.
 
-- Follow the [setup guide](https://github.com/dusty-nv/jetson-containers/blob/master/docs/setup.md) to install and setup sdd as a storage for the containers. 
+- Follow the [setup guide](https://github.com/dusty-nv/jetson-containers/blob/master/docs/setup.md) to install and setup ssd as a storage for the containers. 
 - To run a container image use `jetson-containers run --volume /home/user/Documents/docker_storage/ros-humble:/home container:tag`
 - You can change the run command in the `run.sh` in the package files.
 
