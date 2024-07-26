@@ -2,7 +2,7 @@ FROM ros:galactic
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SHELL /bin/bash
+ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get -qq update \

@@ -3,7 +3,7 @@ FROM ros:foxy
 ARG ACCEPT_EULA=y
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SHELL /bin/bash
+ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
 

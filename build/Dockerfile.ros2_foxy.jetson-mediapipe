@@ -1,15 +1,16 @@
-#For jetpack 6 rev 1
-#Change base image for jetpack versions
-#From https://hub.docker.com/r/dustynv/l4t-pytorch
+#Jetpack 5.1.2
+# Base image has mediapipe GPU support for jetons
+# From  https://github.com/lanzani/jetson-libraries/pkgs/container/mediapipe
 
-FROM dustynv/l4t-pytorch:r36.2.0
+FROM ghcr.io/lanzani/mediapipe:l4t35.4.1-py3.8.10-ocv4.8.0-mp0.10.7
 
-ARG DEBIAN_FRONTEND=noninteractive
 ARG ACCEPT_EULA=y
+ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SHELL=/bin/bash
+ENV SHELL /bin/bash
 SHELL ["/bin/bash", "-c"]
 
+# Essentials
 RUN apt-get -qq update \
     && apt-get -qq upgrade \
     && apt-get -qq install \
@@ -32,6 +33,7 @@ RUN apt-get -qq update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+#Ros
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
@@ -59,14 +61,12 @@ RUN apt-get -qq update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-#installing k4a
+# Azure kinect
 
 RUN curl -sSL -O https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
 RUN dpkg -i packages-microsoft-prod.deb
 RUN rm packages-microsoft-prod.deb
 RUN echo "deb [arch=arm64] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod bionic main" >> /etc/apt/sources.list.d/microsoft-prod.list
-RUN wget mirrors.kernel.org/ubuntu/pool/universe/libs/libsoundio/libsoundio1_1.1.0-1_amd64.deb
-RUN dpkg -i libsoundio1_1.1.0-1_amd64.deb
 
 RUN apt-get -qq update \
 	&& apt-get install \
@@ -75,10 +75,6 @@ RUN apt-get -qq update \
 	k4a-tools \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/*
-
-RUN wget https://nvidia.box.com/shared/static/i7n40ki3pl2x57vyn4u7e9asyiqlnl7n.whl -O onnxruntime_gpu-1.17.0-cp310-cp310-linux_aarch64.whl
-RUN pip instal onnxruntime_gpu-1.17.0-cp310-cp310-linux_aarch64.whl
-RUN pip install onnxsim --user
 
 RUN touch /root/.Xauthority
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
