@@ -1,0 +1,87 @@
+FROM dustynv/l4t-pytorch:r36.2.0
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ACCEPT_EULA=y
+ARG USER_GID=1000
+ARG USERNAME=humble
+ARG USER_UID=1000
+
+
+ENV SHELL /bin/bash
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+    git-core \
+    curl \
+    g++ \
+    gcc \
+    gfortran \
+    git \
+    libtool \
+    automake \
+    pkg-config \
+    unzip \
+    wget \
+	xauth \
+	vim \
+    ca-certificates \
+    software-properties-common \
+	usbutils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+    ros-humble-ros-base \
+	ros-dev-tools \
+    python3-rosdep \
+	python3-pip \
+	python3-colcon-common-extensions \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+	ros-humble-nav2-behaviors \
+	ros-humble-nav2-bt-navigator \
+	ros-humble-behaviortree-cpp \
+	ros-humble-cv-bridge \
+	ros-humble-angles \
+	ros-humble-image-transport \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+#installing k4a
+
+RUN curl -sSL -O https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
+RUN dpkg -i packages-microsoft-prod.deb
+RUN rm packages-microsoft-prod.deb
+RUN echo "deb [arch=arm64] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod bionic main" >> /etc/apt/sources.list.d/microsoft-prod.list
+RUN wget mirrors.kernel.org/ubuntu/pool/universe/libs/libsoundio/libsoundio1_1.1.0-1_amd64.deb
+RUN dpkg -i libsoundio1_1.1.0-1_amd64.deb
+
+RUN apt-get -qq update \
+	&& apt-get install \
+	libk4a1.4 \
+	libk4a1.4-dev \
+	k4a-tools \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN wget https://nvidia.box.com/shared/static/i7n40ki3pl2x57vyn4u7e9asyiqlnl7n.whl -O onnxruntime_gpu-1.17.0-cp310-cp310-linux_aarch64.whl
+RUN pip instal onnxruntime_gpu-1.17.0-cp310-cp310-linux_aarch64.whl
+RUN pip install onnxsim --user
+
+RUN touch /root/.Xauthority
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+COPY bash_lines.txt /tmp/
+RUN cat /tmp/bash_lines.txt >> /root/.bashrc
+

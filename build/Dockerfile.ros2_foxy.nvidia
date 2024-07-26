@@ -1,0 +1,79 @@
+FROM nvidia/cuda:12.4.1-devel-ubuntu20.04 
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ACCEPT_EULA=y
+
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+    git-core \
+    curl \
+    g++ \
+    gcc \
+    gfortran \
+    git \
+    libtool \
+    automake \
+    pkg-config \
+    unzip \
+    wget \
+	xauth \
+	vim \
+	locales \
+    ca-certificates \
+    software-properties-common \
+	usbutils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
+    export LANG=en_US.UTF-8 && \
+    apt-add-repository universe
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+    ros-foxy-desktop \
+	python3-argcomplete \
+	ros-dev-tools \
+    python3-rosdep \
+	python3-pip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get -qq update \
+    && apt-get -qq upgrade \
+    && apt-get -qq install \
+	ros-foxy-v4l2-camera \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Azure kinect
+
+RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl -sSL https://packages.microsoft.com/config/ubuntu/18.04/prod.list | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+
+RUN apt-get -qq update \
+    && apt-get -qq install \
+    libk4a1.4 \
+    libk4a1.4-dev \
+    k4a-tools \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# cv
+RUN pip install \
+	opencv-python \
+	opencv-contrib-python \
+	mediapipe 
+
+RUN touch /root/.Xauthority
+COPY bash_lines.txt /tmp/
+RUN cat /tmp/bash_lines.txt >> /root/.bashrc
