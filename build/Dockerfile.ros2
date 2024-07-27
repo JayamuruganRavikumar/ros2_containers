@@ -1,26 +1,31 @@
-FROM ros:humble
+#Default base image
+ARG BASE_IMAGE=ros:foxy
 
+FROM ros:${BASE_IMAGE}
+ARG DISTRO=${DISTRO}
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SHELL /bin/bash
+ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
+
 
 RUN apt-get -qq update \
     && apt-get -qq upgrade \
     && apt-get -qq install \
 	xauth \
 	vim \
-	git \
-	curl \
 	wget \
-    ros-humble-rqt-graph \
-    ros-humble-rqt-reconfigure \
-    ros-humble-rqt-image-view \
-    ros-humble-rviz2 \
-    ros-humble-rviz-common \
-    ros-humble-rviz-default-plugins \
-    ros-humble-sensor-msgs \
-	ros-humble-v4l2-camera \
+	curl \
+	git \
+	software-properties-common \
+    ros-$DISTRO-rqt-graph \
+    ros-$DISTRO-rqt-reconfigure \
+    ros-$DISTRO-rqt-image-view \
+    ros-$DISTRO-rviz2 \
+    ros-$DISTRO-rviz-common \
+    ros-$DISTRO-rviz-default-plugins \
+    ros-$DISTRO-sensor-msgs \
+	ros-$DISTRO-v4l2-camera \
 	python3-pip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

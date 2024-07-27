@@ -1,4 +1,2 @@
 xauth add $VARDPY${DISPLAY: -1} $VARPROTO $VARHEX
 set -o vi
-source /home/ros2_ws/install/setup.bash
-source /opt/ros/foxy/setup.bash

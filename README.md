@@ -7,13 +7,13 @@
 
 ## Running Containers
 
-- Run `./build.sh <ros distro name> <1>` (foxy, humble, galactic) (1 pulls nvidia/cuda image, Leaving it empty pulls from ros:distro).
+- Run `./build.sh <ros distro name> <device>` (foxy, humble, galactic) (device is either `nvidia` or `jetson`, will pull nvidia/cuda or l4t-pytorch image, Leaving it empty pulls from ros:distro).
 
-- After build is finished run `./ros.sh <distro name> <1>` will open a interactive shell with GUI support in linux. Passing `1` will notifiy docker to use the nvidia image.
+- After build is finished run `./ros.sh <distro name> <device>` will open a interactive shell with GUI support in linux. Passing `nvidia` or `jetson` will notifiy docker to use the specific image.
 
-- Reruning the `./ros.sh <distro name> <1>` will attach a container.
+- Reruning the `./ros.sh <distro name> <device>` will attach a container.
 
-- add `alias launchDocker="zsh ~/Documents/automationFiles/docker/ros.sh"` to your bashrc/zshrc to launch your container with `launchDocker <distro name> <1>`.
+- add `alias launchDocker="zsh ~/Documents/automationFiles/docker/ros.sh"` to your bashrc/zshrc to launch your container with `launchDocker <distro name> <device>`.
 
 ### Jetsons
 

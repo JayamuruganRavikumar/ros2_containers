@@ -1,22 +1,23 @@
-#!/bin/zsh
+#!/bin/sh
 IFS=' ' read -r VARDPY VARPROTO VARHEX <<< $(xauth list)
-distro_name=$1
-nvidia=$2
+distro_name="$1"
+device_type="$2"
 
-if [ -z "$distro_name" ];then
+if [ -z "$distro_name" ]; then
 	echo "$(tput setaf 3)--------Defaulting to humble distro--------$(tput sgr0)"
 	distro_name="humble"
 else
-	echo "$(tput setaf 3)--------Using ros:$distro_name image--------$(tput sgr0)"
+	echo "$(tput setaf 3)--------Using ros:$distro_name-$device_type image--------$(tput sgr0)"
 fi
 
-if [ "$nvidia" -eq 1 ] && [ ! -z "$nvidia" ];then
-	container_name="ros-$distro_name-nvidia"
-	echo "$(tput setaf 6)--------Using $container_name as container name--------$(tput sgr0)"
+if [ "$device_type" = "nvidia" ] || [ "$device_type" = "jetson" ]; then
+
+	container_name="ros-$distro_name-$device_type"
 else
 	container_name="ros-$distro_name"
-	echo "$(tput setaf 6)--------Using $container_name as container name--------$(tput sgr0)"
 fi
+
+echo "$(tput setaf 6)--------Using $container_name as container name--------$(tput sgr0)"
 
 if [ "$(sudo docker ps -a --quiet --filter status=running --filter name=$container_name)" ]; then
 	echo "$(tput setaf 1)--------Found runnning $container_name container--------$(tput sgr0)"
@@ -49,10 +50,9 @@ start_docker(){
 
 docker_args=()
 
-if [ "$nvidia" -eq 1 ];then
-
-	start_docker "$distro_name-nvidia"
-
+if [ ! -z "$device_type" ];then
+	start_docker "$distro_name-$device_type"
+	
 else
 	start_docker "$distro_name"
 
