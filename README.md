@@ -9,6 +9,8 @@
 
 - Run `./build.sh <ros distro name> <device>` (foxy, humble, galactic) (device is either `nvidia` or `jetson`, will pull nvidia/cuda or l4t-pytorch image, Leaving it empty pulls from ros:distro).
 
+- The build files can be found in the build folder and can be changed accordingly.
+
 - After build is finished run `./ros.sh <distro name> <device>` will open a interactive shell with GUI support in linux. Passing `nvidia` or `jetson` will notifiy docker to use the specific image.
 
 - Reruning the `./ros.sh <distro name> <device>` will attach a container.
