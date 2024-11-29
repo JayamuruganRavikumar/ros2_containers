@@ -11,9 +11,11 @@
 
 - The build files can be found in the build folder and can be changed accordingly.
 
-- After build is finished run `./ros.sh <distro name> <device>` will open a interactive shell with GUI support in linux. Passing `nvidia` or `jetson` will notifiy docker to use the specific image.
+- For help `./ros.sh --help`
 
-- Reruning the `./ros.sh <distro name> <device>` will attach a container.
+- After build is finished run `./ros.sh -i <distro name> -d <device>` will open a interactive shell with GUI support in linux. Passing `nvidia` or `jetson` will notifiy docker to use the specific image.
+
+- Reruning the `./ros.sh -i <distro name> -d <device>` will attach a container.
 
 - add `alias launchDocker="zsh ~/Documents/automationFiles/docker/ros.sh"` to your bashrc/zshrc to launch your container with `launchDocker <distro name> <device>`.
 

@@ -1,7 +1,29 @@
 #!/bin/sh
+
+while [[ $# -gt 0 ]]; do
+	case $1 in
+		--device|-d)
+			device_type="$2"
+			shift
+			shift
+			;;
+		--image|-i)
+			distro_name="$2"
+			shift
+			shift
+			;;
+		--help)
+			echo "Usage; [--help] [--device|-d <nvidia>] [--image|-i] <distro>]"
+			exit 0
+			;;
+		*)
+			echo "Unknown argument: $1"
+			exit 1
+			;;
+	esac
+done
+
 IFS=' ' read -r VARDPY VARPROTO VARHEX <<< $(xauth list)
-distro_name="$1"
-device_type="$2"
 
 if [ -z "$distro_name" ]; then
 	echo "$(tput setaf 6)*************************************$(tput sgr0)"
@@ -38,18 +60,21 @@ if [ "$(sudo docker ps -a --quiet --filter status=running --filter name=$contain
     exit 0
 fi
 
+xhost +local:docker
+
 start_docker(){
 
 	local name=$1
 	docker_args+=("-e NVIDIA_DRIVER_CAPABILITIES=all")
 	docker_args+=("-e NVIDIA_VISIBLE_DEVICES=all")
-	sudo docker run -it --privileged --rm \
+	sudo docker run -it --rm \
 				--gpus all \
 				--net=host \
 				--env="DISPLAY"\
-				-e VARDPY=$VARDPY -e VARPROTO=$VARPROTO -e VARHEX=$VARHEX \
+				-e DISPLAY=$DISPLAY \
 				"${docker_args[@]}" \
 				-v ~/Documents/docker_storage/$container_name:/home/ \
+				-v /tmp/.X11-unix:/tmp/.X11-unix \
 				--device=/dev/dri:/dev/dri \
 				--entrypoint='' \
 				--name="$container_name" ros:"$name" \
@@ -57,7 +82,8 @@ start_docker(){
 
 }
 
-docker_args=()
+#To do
+#docker_args=()
 
 if [ ! -z "$device_type" ];then
 	start_docker "$distro_name-$device_type"
