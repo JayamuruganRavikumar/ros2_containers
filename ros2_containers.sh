@@ -2,18 +2,18 @@
 
 while [[ $# -gt 0 ]]; do
 	case $1 in
-		--device|-d)
+		--gpu|-g)
 			device_type="$2"
 			shift
 			shift
 			;;
-		--image|-i)
+		--distro|-d)
 			distro_name="$2"
 			shift
 			shift
 			;;
 		--help)
-			echo "Usage; [--help] [--device|-d <nvidia>] [--image|-i] <distro>]"
+			echo "Usage; [--help] [--gpu|-g <nvidia>] [--distro|-d] <distro>]"
 			exit 0
 			;;
 		*)
