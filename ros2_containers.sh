@@ -43,7 +43,6 @@ else
 	container_name="ros-$distro_name"
 fi
 
-echo "$(tput setaf 6)*******************************************$(tput sgr0)"
 echo "$(tput setaf 3)--Using $container_name as container name--$(tput sgr0)"
 echo "$(tput setaf 6)*******************************************$(tput sgr0)"
 
