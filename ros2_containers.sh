@@ -47,11 +47,11 @@ echo "$(tput setaf 3)--Using $container_name as container name--$(tput sgr0)"
 echo "$(tput setaf 6)*******************************************$(tput sgr0)"
 
 if [ "$(sudo docker ps -a --quiet --filter status=running --filter name=$container_name)" ]; then
-	echo "$(tput setaf 6)*************************************$(tput sgr0)"
+	echo "$(tput setaf 6)*************************************************$(tput sgr0)"
 	echo "$(tput setaf 1)-----Found runnning $container_name container-----$(tput sgr0)"
 	echo "$(tput setaf 6)*************************************$(tput sgr0)"
 	echo "$(tput setaf 6)-----Attaching into existing $container_name-----$(tput sgr0)"
-	echo "$(tput setaf 6)*************************************$(tput sgr0)"
+	echo "$(tput setaf 6)*************************************************$(tput sgr0)"
     sudo docker exec -i -t \
 		$container_name \
 		/bin/bash
