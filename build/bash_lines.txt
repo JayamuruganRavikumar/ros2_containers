@@ -1,2 +1,0 @@
-#xauth add $VARDPY${DISPLAY: -1} $VARPROTO $VARHEX
-set -o vi
