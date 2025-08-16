@@ -67,7 +67,7 @@ start_docker(){
 	docker_args+=("-e NVIDIA_DRIVER_CAPABILITIES=all")
 	docker_args+=("-e NVIDIA_VISIBLE_DEVICES=all")
 	sudo docker run -it --rm \
-				--gpus all \
+				--runtime=nvidia \
 				--net=host \
 				--env="DISPLAY"\
 				-e DISPLAY=$DISPLAY \
