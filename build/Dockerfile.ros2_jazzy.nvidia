@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.0.0-devel-ubuntu24.04
+FROM nvidia/cuda:13.0.0-devel-ubuntu24.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ACCEPT_EULA=y
@@ -6,6 +6,7 @@ ARG ACCEPT_EULA=y
 ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
+# Install build dependencies (only needed for custom builds)
 RUN apt-get -qq update \
   && apt-get -qq upgrade \
   && apt-get -qq install \
@@ -20,12 +21,38 @@ RUN apt-get -qq update \
   pkg-config \
   unzip \
   wget \
+  locales \
+  ca-certificates \
+  software-properties-common \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Build custom packages here
+# WORKDIR /workspace
+# COPY custom_packages/ ./
+# RUN colcon build --install-base /opt/custom_ros
+
+# Runtime stage - Clean production image
+FROM nvidia/cuda:13.0.0-runtime-ubuntu24.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ACCEPT_EULA=y
+
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+# Install only runtime dependencies
+RUN apt-get -qq update \
+  && apt-get -qq upgrade \
+  && apt-get -qq install \
+  curl \
   xauth \
   vim \
   locales \
   ca-certificates \
   software-properties-common \
-	usbutils \
+  usbutils \
+  sudo \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -36,6 +63,9 @@ RUN locale-gen en_US en_US.UTF-8 && \
 
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+#Copy custom built packages from builder stage
+# COPY --from=builder /opt/custom_ros /opt/custom_ros
 
 RUN apt-get -qq update \
   && apt-get -qq upgrade \
@@ -60,10 +90,23 @@ RUN apt-get -qq update \
   ros-jazzy-gz-ros2-control \
   ros-jazzy-robot-state-publisher \
   ros-jazzy-joint-state-publisher \
+  ros-jazzy-joint-state-publisher-gui \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-RUN touch /root/.Xauthority
+# Create non-root user
+RUN groupadd -r jazzy && useradd -r -g jazzy -m -d /home/jazzy -s /bin/bash jazzy && \
+    usermod -aG sudo jazzy && \
+    echo 'jazzy ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Set up user environment
+USER jazzy
+WORKDIR /home/jazzy
+
+RUN touch /home/jazzy/.Xauthority
 COPY bash_lines.txt /tmp/
-RUN cat /tmp/bash_lines.txt >> /root/.bashrc
+RUN cat /tmp/bash_lines.txt >> /home/jazzy/.bashrc
+
+# Initialize rosdep for non-root user
+RUN sudo rosdep init && rosdep update
 

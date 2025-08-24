@@ -1,31 +1,79 @@
 
-## Building a ros docker image
+# ROS2 Containers
 
-- `cd into the build folder`. Add the Dockerfiles here.
+A unified CLI tool for building and running ROS2 Docker containers with GPU support.
 
-- Change the working directory if needed in the build.sh file, default will be `~/Documents/docker_storage/ros-<distro name>`
+## Installation
 
-## Running Containers
+```bash
+./install.sh
+```
 
-- Run `./build.sh <ros distro name> <device>` (foxy, humble, galactic) (device is either `nvidia` or `jetson`, will pull nvidia/cuda or l4t-pytorch image, Leaving it empty pulls from ros:distro).
+Make sure `~/.local/bin` is in your PATH. Add this to your `~/.bashrc` if needed:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
 
-- The build files can be found in the build folder and can be changed accordingly.
+## Usage
 
-- To install run `sudo bash install.sh`
+### Building Containers
+```bash
+ros2_containers build <distro> [device] [purpose]
+```
 
-- For help `ros2_containers --help`
+Examples:
+- `ros2_containers build humble nvidia` - Build ROS2 Humble with NVIDIA GPU support
+- `ros2_containers build foxy jetson mediapipe` - Build Foxy with Jetson and MediaPipe support
 
-- After build is finished run `ros2_containers -d <distro name> -g <device>` will open a interactive shell with GUI support in linux. Passing `nvidia` or `jetson` will notifiy docker to use the specific image.
+### Running Containers
+```bash
+ros2_containers run <distro> [device] [purpose]
+```
 
-- Reruning the `ros2_containers -d <distro name> -g <device>` will attach a container.
+Examples:
+- `ros2_containers run humble nvidia` - Run/attach to Humble NVIDIA container
+- `ros2_containers run foxy jetson mediapipe` - Run Foxy Jetson MediaPipe container
 
-- add `alias launchDocker="zsh ~/Documents/automationFiles/docker/ros.sh"` to your bashrc/zshrc to launch your container with `launchDocker <distro name> <device>`.
+### Listing Available Options
+```bash
+ros2_containers list                    # List all Dockerfiles
+ros2_containers list humble             # List devices for humble
+ros2_containers list humble nvidia      # List purposes for humble-nvidia
+```
 
-### Jetsons
+### Configuration
+```bash
+ros2_containers config                           # Show current config
+ros2_containers config set storage_path <path>  # Set storage path template
+```
 
-To run containers on jetons use [jetson-containers](https://github.com/dusty-nv/jetson-containers.git) package.
+Storage path supports variables: `{distro}`, `{device}`, `{purpose}`
+- Example: `~/docker_storage/ros-{distro}-{device}`
 
-- Follow the [setup guide](https://github.com/dusty-nv/jetson-containers/blob/master/docs/setup.md) to install and setup ssd as a storage for the containers. 
-- To run a container image use `jetson-containers run --volume /home/user/Documents/docker_storage/ros-humble:/home container:tag`
-- You can change the run command in the `run.sh` in the package files.
+## Available Dockerfiles
+
+- **Base**: `Dockerfile.ros2` - Basic ROS2 installation
+- **Device-specific**: `Dockerfile.ros2_<distro>.<device>` (nvidia, jetson)
+- **Purpose-specific**: `Dockerfile.ros2_<distro>.<device>.<purpose>` (mediapipe, yolo, etc.)
+
+## Features
+
+- **GPU Support**: Automatic NVIDIA GPU passthrough for containers
+- **GUI Support**: X11 forwarding for RViz, Gazebo, etc.
+- **Persistent Storage**: Configurable workspace directories
+- **Container Reuse**: Automatically attaches to running containers
+- **Multi-stage Builds**: Optimized container sizes
+
+## Configuration File
+
+Located at `build/ros2_containers.conf`:
+```bash
+# Storage path template with variables
+STORAGE_PATH=~/Documents/docker_storage/ros-{distro}
+
+# Default values
+DEFAULT_DEVICE=nvidia
+DEFAULT_DISTRO=humble
+WORKSPACE_SUBDIR=ros2_ws/src
+```
 

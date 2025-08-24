@@ -1,0 +1,357 @@
+#!/bin/bash
+
+# ROS2 Containers - Unified CLI for building and running ROS2 Docker containers
+# Usage: ros2_containers <command> [args...]
+
+# Configuration file path
+CONFIG_FILE="$(dirname "$0")/ros2_containers.conf"
+
+# Load configuration
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # Source config file (ignore comments and empty lines)
+        . "$CONFIG_FILE"
+    else
+        # Default values if no config file
+        STORAGE_PATH=~/Documents/docker_storage/ros-{distro}
+        DOCKER_BUILDKIT=1
+        DEFAULT_DEVICE=nvidia
+        DEFAULT_DISTRO=humble
+        WORKSPACE_SUBDIR=ros2_ws/src
+    fi
+}
+
+# Initialize configuration
+load_config
+
+show_help() {
+    echo "ROS2 Containers - Unified CLI for building and running ROS2 Docker containers"
+    echo ""
+    echo "Usage: $0 <command> [args...]"
+    echo ""
+    echo "Commands:"
+    echo "  build <distro> [device] [purpose]    Build a container image"
+    echo "  run <distro> [device] [purpose]      Run/attach to a container"
+    echo "  list [distro] [device]               List available images or purposes"
+    echo "  config                               Show current configuration"
+    echo "  config set <key> <value>             Set configuration value"
+    echo ""
+    echo "Arguments:"
+    echo "  distro   : ROS2 distribution (humble, jazzy, foxy, etc.)"
+    echo "  device   : Target device (nvidia, jetson, or leave empty for base)"
+    echo "  purpose  : Special purpose variant (mediapipe, yolo, opencv, nav2, etc.)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 build humble nvidia"
+    echo "  $0 build humble nvidia mediapipe"
+    echo "  $0 run humble nvidia mediapipe"
+    echo "  $0 list humble nvidia"
+    echo "  $0 config"
+    echo "  $0 config set storage_path '~/docker_storage/ros-{distro}'"
+    exit 0
+}
+
+show_config() {
+    echo "Current Configuration:"
+    echo "  Storage Path: $STORAGE_PATH"
+    echo "  Default Device: $DEFAULT_DEVICE"
+    echo "  Default Distro: $DEFAULT_DISTRO" 
+    echo "  Workspace Subdir: $WORKSPACE_SUBDIR"
+    echo "  Config File: $CONFIG_FILE"
+}
+
+set_config() {
+    local key=$1
+    local value=$2
+    
+    if [ -z "$key" ] || [ -z "$value" ]; then
+        echo "Error: Both key and value required"
+        echo "Usage: $0 config set <key> <value>"
+        exit 1
+    fi
+    
+    # Convert key to uppercase for consistency
+    key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+    
+    case "$key" in
+        STORAGE_PATH|DEFAULT_DEVICE|DEFAULT_DISTRO|WORKSPACE_SUBDIR)
+            # These are valid, no special validation needed
+            ;;
+        *)
+            echo "Error: Unknown config key '$key'"
+            exit 1
+            ;;
+    esac
+    
+    # Update config file
+    if [ -f "$CONFIG_FILE" ]; then
+        # Replace existing line or append new one
+        if grep -q "^$key=" "$CONFIG_FILE"; then
+            sed -i "s|^$key=.*|$key=$value|" "$CONFIG_FILE"
+        else
+            echo "$key=$value" >> "$CONFIG_FILE"
+        fi
+    else
+        mkdir -p "$(dirname "$CONFIG_FILE")"
+        echo "$key=$value" > "$CONFIG_FILE"
+    fi
+    
+    echo "Configuration updated: $key=$value"
+}
+
+list_purposes() {
+    local distro=$1
+    local device=${2:-}
+    
+    if [ -z "$distro" ]; then
+        echo "$(tput setaf 6)Available Dockerfiles:$(tput sgr0)"
+        cd "$(dirname "$0")/build"
+        ls Dockerfile.ros2* 2>/dev/null || echo "  No Dockerfiles found"
+        return
+    fi
+    
+    if [ -z "$device" ]; then
+        echo "$(tput setaf 6)Available devices for $distro:$(tput sgr0)"
+        cd "$(dirname "$0")/build"
+        found=false
+        for file in Dockerfile.ros2_${distro}.*; do
+            if [ -f "$file" ]; then
+                device_part=$(echo "$file" | sed "s/Dockerfile.ros2_${distro}\.//g" | cut -d'.' -f1)
+                if [ "$device_part" != "$file" ]; then
+                    echo "  - $device_part"
+                    found=true
+                fi
+            fi
+        done
+        
+        if [ "$found" = false ]; then
+            echo "  No devices found for $distro"
+        fi
+        return
+    fi
+    
+    echo "$(tput setaf 6)Available purposes for $distro-$device:$(tput sgr0)"
+    
+    cd "$(dirname "$0")/build"
+    found=false
+    for file in Dockerfile.ros2_${distro}.${device}.*; do
+        if [ -f "$file" ] && [ "$file" != "Dockerfile.ros2_${distro}.${device}" ]; then
+            purpose=$(echo "$file" | sed "s/Dockerfile.ros2_${distro}\.${device}\.//g")
+            echo "  - $purpose"
+            found=true
+        fi
+    done
+    
+    if [ "$found" = false ]; then
+        echo "  No specialized purposes found"
+        if [ -f "Dockerfile.ros2_${distro}.${device}" ]; then
+            echo "  Available base: Dockerfile.ros2_${distro}.${device}"
+        fi
+    fi
+}
+
+# Determine storage directory based on config template
+get_storage_dir() {
+    local distro=$1
+    local device=$2
+    local purpose=$3
+    
+    local storage_dir="$STORAGE_PATH"
+    
+    # Replace variables in the template
+    storage_dir=$(echo "$storage_dir" | sed "s/{distro}/$distro/g")
+    
+    # Handle device replacement (empty if not provided)
+    if [ ! -z "$device" ]; then
+        storage_dir=$(echo "$storage_dir" | sed "s/{device}/$device/g")
+    else
+        # Remove device references if no device provided
+        storage_dir=$(echo "$storage_dir" | sed "s/-{device}//g" | sed "s/{device}//g")
+    fi
+    
+    # Handle purpose replacement (empty if not provided)  
+    if [ ! -z "$purpose" ]; then
+        storage_dir=$(echo "$storage_dir" | sed "s/{purpose}/$purpose/g")
+    else
+        # Remove purpose references if no purpose provided
+        storage_dir=$(echo "$storage_dir" | sed "s/-{purpose}//g" | sed "s/{purpose}//g")
+    fi
+    
+    echo "$storage_dir"
+}
+
+build_image() {
+    local distro_name=$1
+    local device_type=$2
+    local purpose=$3
+    
+    # Change to build directory
+    cd "$(dirname "$0")/build"
+    
+    # Validate required arguments
+    if [ -z "$distro_name" ]; then
+        echo "$(tput setaf 1)Error: distro name is required$(tput sgr0)"
+        show_help
+    fi
+
+    # Build dockerfile name and container tag
+    if [ ! -z "$purpose" ]; then
+        if [ ! -z "$device_type" ]; then
+            dockerfile="Dockerfile.ros2_${distro_name}.${device_type}.${purpose}"
+            container_tag="ros:${distro_name}-${device_type}-${purpose}"
+        else
+            dockerfile="Dockerfile.ros2_${distro_name}.${purpose}"
+            container_tag="ros:${distro_name}-${purpose}"
+        fi
+    elif [ ! -z "$device_type" ]; then
+        dockerfile="Dockerfile.ros2_${distro_name}.${device_type}"
+        container_tag="ros:${distro_name}-${device_type}"
+    else
+        dockerfile="Dockerfile.ros2"
+        container_tag="ros:${distro_name}"
+    fi
+
+    # Validate dockerfile exists
+    if [ ! -f "$dockerfile" ]; then
+        echo "$(tput setaf 1)Error: $dockerfile not found$(tput sgr0)"
+        echo "$(tput setaf 3)Available Dockerfiles:$(tput sgr0)"
+        ls Dockerfile.ros2* 2>/dev/null || echo "  No Dockerfiles found"
+        echo ""
+        if [ ! -z "$device_type" ]; then
+            list_purposes "$distro_name" "$device_type"
+        fi
+        exit 1
+    fi
+
+    # Display build information
+    echo "$(tput setaf 6)===========================================$(tput sgr0)"
+    echo "$(tput setaf 3)Building: $container_tag$(tput sgr0)"
+    echo "$(tput setaf 3)Using: $dockerfile$(tput sgr0)"
+    echo "$(tput setaf 6)===========================================$(tput sgr0)"
+
+    # Create storage directory
+    FULL_STORAGE_DIR=$(get_storage_dir "$distro_name" "$device_type" "$purpose")
+    echo "$(tput setaf 3)Creating directory for container files: $FULL_STORAGE_DIR$(tput sgr0)"
+    mkdir -p "$FULL_STORAGE_DIR/$WORKSPACE_SUBDIR"
+
+    # Add ROS setup to bash_lines.txt
+    echo "source /opt/ros/$distro_name/setup.bash" >> bash_lines.txt
+
+    # Build the Docker image
+    echo "$(tput setaf 3)Starting Docker build...$(tput sgr0)"
+    if [ "$dockerfile" = "Dockerfile.ros2" ]; then
+        sudo docker build --build-arg BASE_IMAGE=$distro_name --build-arg DISTRO=$distro_name -t "$container_tag" -f "$dockerfile" .
+    else
+        sudo docker build -t "$container_tag" -f "$dockerfile" .
+    fi
+
+    # Clean up bash_lines.txt (remove the last line we added)
+    head -n -1 bash_lines.txt > temp.txt ; mv temp.txt bash_lines.txt
+
+    echo "$(tput setaf 2)Build completed: $container_tag$(tput sgr0)"
+}
+
+run_container() {
+    local distro_name=$1
+    local device_type=$2
+    local purpose=$3
+    
+    # Default to configured defaults if not provided
+    if [ -z "$distro_name" ]; then
+        distro_name="$DEFAULT_DISTRO"
+        echo "$(tput setaf 6)*************************************$(tput sgr0)"
+        echo "$(tput setaf 3)-----Defaulting to $distro_name distro-----$(tput sgr0)"
+        echo "$(tput setaf 6)*************************************$(tput sgr0)"
+    fi
+    
+    if [ -z "$device_type" ]; then
+        device_type="$DEFAULT_DEVICE"
+    fi
+
+    # Build container name and image tag
+    if [ ! -z "$purpose" ]; then
+        if [ ! -z "$device_type" ]; then
+            container_name="ros-${distro_name}-${device_type}-${purpose}"
+            image_tag="${distro_name}-${device_type}-${purpose}"
+        else
+            container_name="ros-${distro_name}-${purpose}"
+            image_tag="${distro_name}-${purpose}"
+        fi
+    elif [ ! -z "$device_type" ]; then
+        container_name="ros-${distro_name}-${device_type}"
+        image_tag="${distro_name}-${device_type}"
+    else
+        container_name="ros-${distro_name}"
+        image_tag="${distro_name}"
+    fi
+
+    echo "$(tput setaf 6)*******************************************$(tput sgr0)"
+    echo "$(tput setaf 3)-----Using ros:$image_tag image-----$(tput sgr0)"
+    echo "$(tput setaf 3)--Using $container_name as container name--$(tput sgr0)"
+    echo "$(tput setaf 6)*******************************************$(tput sgr0)"
+
+    # Check if container is already running
+    if [ "$(sudo docker ps -a --quiet --filter status=running --filter name=$container_name)" ]; then
+        echo "$(tput setaf 6)*************************************************$(tput sgr0)"
+        echo "$(tput setaf 1)-----Found running $container_name container-----$(tput sgr0)"
+        echo "$(tput setaf 6)-----Attaching into existing $container_name-----$(tput sgr0)"
+        echo "$(tput setaf 6)*************************************************$(tput sgr0)"
+        sudo docker exec -i -t $container_name /bin/bash
+        exit 0
+    fi
+
+    # Get X11 authorization
+    IFS=' ' read -r VARDPY VARPROTO VARHEX <<< $(xauth list)
+    xhost +local:docker
+
+    # Get storage directory
+    FULL_STORAGE_DIR=$(get_storage_dir "$distro_name" "$device_type" "$purpose")
+
+    # Start new container
+    echo "$(tput setaf 3)Starting new container: $container_name$(tput sgr0)"
+    sudo docker run -it --rm \
+        --runtime=nvidia \
+        --net=host \
+        --env="DISPLAY" \
+        -e DISPLAY=$DISPLAY \
+        -e NVIDIA_DRIVER_CAPABILITIES=all \
+        -e NVIDIA_VISIBLE_DEVICES=all \
+        -v "$FULL_STORAGE_DIR/$WORKSPACE_SUBDIR":/home/$distro_name/workspace \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        --device=/dev/dri:/dev/dri \
+        --entrypoint='' \
+        --name="$container_name" \
+        ros:"$image_tag" \
+        /bin/bash
+}
+
+# Main command dispatcher
+case "$1" in
+    build)
+        shift
+        build_image "$1" "$2" "$3"
+        ;;
+    run)
+        shift
+        run_container "$1" "$2" "$3"
+        ;;
+    list)
+        shift
+        list_purposes "$1" "$2"
+        ;;
+    config)
+        if [ "$2" = "set" ]; then
+            set_config "$3" "$4"
+        else
+            show_config
+        fi
+        ;;
+    --help|-h|help|"")
+        show_help
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        echo "Use '$0 --help' for usage information"
+        exit 1
+        ;;
+esac
