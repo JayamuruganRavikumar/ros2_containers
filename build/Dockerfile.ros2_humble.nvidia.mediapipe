@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.0.0-devel-ubuntu24.04 AS builder
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ACCEPT_EULA=y
@@ -33,7 +33,7 @@ RUN apt-get -qq update \
 # RUN colcon build --install-base /opt/custom_ros
 
 # Runtime stage
-FROM nvidia/cuda:13.0.0-runtime-ubuntu24.04
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ACCEPT_EULA=y
@@ -64,13 +64,10 @@ RUN locale-gen en_US en_US.UTF-8 && \
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-#Copy custom built packages from builder stage
-# COPY --from=builder /opt/custom_ros /opt/custom_ros
-
 RUN apt-get -qq update \
   && apt-get -qq upgrade \
   && apt-get -qq install \
-  ros-jazzy-desktop \
+  ros-humble-desktop \
   ros-dev-tools \
   python3-rosdep \
   python3-pip \
@@ -80,38 +77,60 @@ RUN apt-get -qq update \
 RUN apt-get -qq update \
   && apt-get -qq upgrade \
   && apt-get -qq install \
-	ros-jazzy-v4l2-camera \
-	ros-jazzy-ros-gz \
-  ros-jazzy-xacro \
-  ros-jazzy-rviz2 \
-  ros-jazzy-moveit \
-  ros-jazzy-ros2-control \
-  ros-jazzy-ros2-controllers \
-  ros-jazzy-gz-ros2-control \
-  ros-jazzy-robot-state-publisher \
-  ros-jazzy-joint-state-publisher \
-  ros-jazzy-joint-state-publisher-gui \
+	ros-humble-nav2-behaviors \
+	ros-humble-nav2-bt-navigator \
+	ros-humble-behaviortree-cpp \
+	ros-humble-v4l2-camera \
+	ros-humble-gazebo-ros-pkgs \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+RUN pip install \
+	opencv-python \
+	mediapipe 
+
+#installing k4a
+
+#RUN curl -sSL -O https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb && \
+#    dpkg -i packages-microsoft-prod.deb && \
+#    rm packages-microsoft-prod.deb && \
+#    wget mirrors.kernel.org/ubuntu/pool/universe/libs/libsoundio/libsoundio1_1.1.0-1_amd64.deb && \
+#	apt-get -qq update && \
+#	apt-get -qq install libjack-jackd2-0 && \
+#    dpkg -i libsoundio1_1.1.0-1_amd64.deb
+#
+#RUN apt-get -qq update \
+#	&& apt-get install \
+#	libk4a1.4 \
+#	libk4a1.4-dev \
+#	k4a-tools \
+#	&& apt-get clean \
+#	&& rm -rf /var/lib/apt/lists/*
+#
+## Add microsoft repo for jammy to prevent broken apt
+#
+#RUN  mv /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/microsoft-prod.list.bak
+#RUN wget -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor - | sudo tee /usr/share/keyrings/microsoft.gpg
+#RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" | tee /etc/apt/sources.list.d/microsoft.list
 
 # Create non-root user with host UID/GID
 ARG USER_UID=1000
 ARG USER_GID=1000
 # Handle potential UID/GID conflicts by removing existing users/groups if they exist
 RUN if id ${USER_UID} >/dev/null 2>&1; then userdel -f $(id -un ${USER_UID}); fi && \
-  if getent group ${USER_GID} >/dev/null 2>&1; then groupdel $(getent group ${USER_GID} | cut -d: -f1); fi && \
-  groupadd -g ${USER_GID} jazzy && \
-  useradd -u ${USER_UID} -g jazzy -m -d /home/jazzy -s /bin/bash jazzy && \
-  usermod -aG sudo jazzy && \
-  echo 'jazzy ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+    if getent group ${USER_GID} >/dev/null 2>&1; then groupdel $(getent group ${USER_GID} | cut -d: -f1); fi && \
+    groupadd -g ${USER_GID} humble && \
+    useradd -u ${USER_UID} -g humble -m -d /home/humble -s /bin/bash humble && \
+    usermod -aG sudo humble && \
+    echo 'humble ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Set up user environment
-USER jazzy
-WORKDIR /home/jazzy
+USER humble
+WORKDIR /home/humble
 
-RUN touch /home/jazzy/.Xauthority
+RUN touch /home/humble/.Xauthority
 COPY bash_lines.txt /tmp/
-RUN cat /tmp/bash_lines.txt >> /home/jazzy/.bashrc
+RUN cat /tmp/bash_lines.txt >> /home/humble/.bashrc
 
 # Initialize rosdep for non-root user
 RUN sudo rosdep init && rosdep update

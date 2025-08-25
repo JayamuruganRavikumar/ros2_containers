@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ACCEPT_EULA=y
@@ -6,57 +6,84 @@ ARG ACCEPT_EULA=y
 ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
+# Install build dependencies (only needed for custom builds)
 RUN apt-get -qq update \
-    && apt-get -qq upgrade \
-    && apt-get -qq install \
-    git-core \
-    curl \
-    g++ \
-    gcc \
-    gfortran \
-    git \
-    libtool \
-    automake \
-    pkg-config \
-    unzip \
-    wget \
-    xauth \
-    vim \
-    locales \
-    ca-certificates \
-    software-properties-common \
-	usbutils \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get -qq upgrade \
+  && apt-get -qq install \
+  git-core \
+  curl \
+  g++ \
+  gcc \
+  gfortran \
+  git \
+  libtool \
+  automake \
+  pkg-config \
+  unzip \
+  wget \
+  locales \
+  ca-certificates \
+  software-properties-common \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Build custom packages here
+# WORKDIR /workspace
+# COPY custom_packages/ ./
+# RUN colcon build --install-base /opt/custom_ros
+
+# Runtime stage
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ACCEPT_EULA=y
+
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+# Install only runtime dependencies
+RUN apt-get -qq update \
+  && apt-get -qq upgrade \
+  && apt-get -qq install \
+  curl \
+  xauth \
+  vim \
+  locales \
+  ca-certificates \
+  software-properties-common \
+  usbutils \
+  sudo \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US en_US.UTF-8 && \
-    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
-    export LANG=en_US.UTF-8 && \
-    apt-add-repository universe
+  update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
+  export LANG=en_US.UTF-8 && \
+  apt-add-repository universe
 
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
 RUN apt-get -qq update \
-    && apt-get -qq upgrade \
-    && apt-get -qq install \
-    ros-humble-desktop \
-    ros-dev-tools \
-    python3-rosdep \
-    python3-pip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get -qq upgrade \
+  && apt-get -qq install \
+  ros-humble-desktop \
+  ros-dev-tools \
+  python3-rosdep \
+  python3-pip \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get -qq update \
-    && apt-get -qq upgrade \
-    && apt-get -qq install \
+  && apt-get -qq upgrade \
+  && apt-get -qq install \
 	ros-humble-nav2-behaviors \
 	ros-humble-nav2-bt-navigator \
 	ros-humble-behaviortree-cpp \
 	ros-humble-v4l2-camera \
 	ros-humble-gazebo-ros-pkgs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 #installing k4a
 
@@ -82,9 +109,25 @@ RUN apt-get -qq update \
 #RUN wget -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor - | sudo tee /usr/share/keyrings/microsoft.gpg
 #RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" | tee /etc/apt/sources.list.d/microsoft.list
 
+# Create non-root user with host UID/GID
+ARG USER_UID=1000
+ARG USER_GID=1000
+# Handle potential UID/GID conflicts by removing existing users/groups if they exist
+RUN if id ${USER_UID} >/dev/null 2>&1; then userdel -f $(id -un ${USER_UID}); fi && \
+  if getent group ${USER_GID} >/dev/null 2>&1; then groupdel $(getent group ${USER_GID} | cut -d: -f1); fi && \
+  groupadd -g ${USER_GID} humble && \
+  useradd -u ${USER_UID} -g humble -m -d /home/humble -s /bin/bash humble && \
+  usermod -aG sudo humble && \
+  echo 'humble ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN touch /root/.Xauthority
-#RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+# Set up user environment
+USER humble
+WORKDIR /home/humble
+
+RUN touch /home/humble/.Xauthority
 COPY bash_lines.txt /tmp/
-RUN cat /tmp/bash_lines.txt >> /root/.bashrc
+RUN cat /tmp/bash_lines.txt >> /home/humble/.bashrc
+
+# Initialize rosdep for non-root user
+RUN sudo rosdep init && rosdep update
 

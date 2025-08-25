@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 
 # Simple installation script for ros2_containers
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Create user bin directory
 mkdir -p ~/.local/bin
 
 # Symlink the main script
-ln -sf "$SCRIPT_DIR/ros2_containers" ~/.local/bin/ros2_containers
+ln -sf "$SCRIPT_DIR/ros2-container" ~/.local/bin/ros2-container
 
-echo "Installed ros2_containers to ~/.local/bin/"
+echo "Installed ros2-container to ~/.local/bin/"
 echo "Make sure ~/.local/bin is in your PATH"

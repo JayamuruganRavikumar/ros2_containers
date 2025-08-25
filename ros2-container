@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
 # ROS2 Containers - Unified CLI for building and running ROS2 Docker containers
 # Usage: ros2_containers <command> [args...]
 
 # Configuration file path
-CONFIG_FILE="$(dirname "$0")/ros2_containers.conf"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/ros2_containers.conf"
 
 # Load configuration
 load_config() {
@@ -105,14 +106,14 @@ list_purposes() {
     
     if [ -z "$distro" ]; then
         echo "$(tput setaf 6)Available Dockerfiles:$(tput sgr0)"
-        cd "$(dirname "$0")/build"
+        cd "$SCRIPT_DIR/build"
         ls Dockerfile.ros2* 2>/dev/null || echo "  No Dockerfiles found"
         return
     fi
     
     if [ -z "$device" ]; then
         echo "$(tput setaf 6)Available devices for $distro:$(tput sgr0)"
-        cd "$(dirname "$0")/build"
+        cd "$SCRIPT_DIR/build"
         found=false
         for file in Dockerfile.ros2_${distro}.*; do
             if [ -f "$file" ]; then
@@ -132,7 +133,7 @@ list_purposes() {
     
     echo "$(tput setaf 6)Available purposes for $distro-$device:$(tput sgr0)"
     
-    cd "$(dirname "$0")/build"
+    cd "$SCRIPT_DIR/build"
     found=false
     for file in Dockerfile.ros2_${distro}.${device}.*; do
         if [ -f "$file" ] && [ "$file" != "Dockerfile.ros2_${distro}.${device}" ]; then
@@ -186,7 +187,7 @@ build_image() {
     local purpose=$3
     
     # Change to build directory
-    cd "$(dirname "$0")/build"
+    cd "$SCRIPT_DIR/build"
     
     # Validate required arguments
     if [ -z "$distro_name" ]; then
@@ -240,9 +241,9 @@ build_image() {
     # Build the Docker image
     echo "$(tput setaf 3)Starting Docker build...$(tput sgr0)"
     if [ "$dockerfile" = "Dockerfile.ros2" ]; then
-        sudo docker build --build-arg BASE_IMAGE=$distro_name --build-arg DISTRO=$distro_name -t "$container_tag" -f "$dockerfile" .
+        sudo docker build --build-arg DISTRO=$distro_name --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -t "$container_tag" -f "$dockerfile" .
     else
-        sudo docker build -t "$container_tag" -f "$dockerfile" .
+        sudo docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -t "$container_tag" -f "$dockerfile" .
     fi
 
     # Clean up bash_lines.txt (remove the last line we added)

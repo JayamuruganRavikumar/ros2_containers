@@ -18,33 +18,33 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### Building Containers
 ```bash
-ros2_containers build <distro> [device] [purpose]
+ros2-container build <distro> [device] [purpose]
 ```
 
 Examples:
-- `ros2_containers build humble nvidia` - Build ROS2 Humble with NVIDIA GPU support
-- `ros2_containers build foxy jetson mediapipe` - Build Foxy with Jetson and MediaPipe support
+- `ros2-container build humble nvidia` - Build ROS2 Humble with NVIDIA GPU support
+- `ros2-container build foxy jetson mediapipe` - Build Foxy with Jetson and MediaPipe support
 
 ### Running Containers
 ```bash
-ros2_containers run <distro> [device] [purpose]
+ros2-container run <distro> [device] [purpose]
 ```
 
 Examples:
-- `ros2_containers run humble nvidia` - Run/attach to Humble NVIDIA container
-- `ros2_containers run foxy jetson mediapipe` - Run Foxy Jetson MediaPipe container
+- `ros2-container run humble nvidia` - Run/attach to Humble NVIDIA container
+- `ros2-container run foxy jetson mediapipe` - Run Foxy Jetson MediaPipe container
 
 ### Listing Available Options
 ```bash
-ros2_containers list                    # List all Dockerfiles
-ros2_containers list humble             # List devices for humble
-ros2_containers list humble nvidia      # List purposes for humble-nvidia
+ros2-container list                    # List all Dockerfiles
+ros2-container list humble             # List devices for humble
+ros2-container list humble nvidia      # List purposes for humble-nvidia
 ```
 
 ### Configuration
 ```bash
-ros2_containers config                           # Show current config
-ros2_containers config set storage_path <path>  # Set storage path template
+ros2-container config                           # Show current config
+ros2-container config set storage_path <path>  # Set storage path template
 ```
 
 Storage path supports variables: `{distro}`, `{device}`, `{purpose}`
@@ -66,7 +66,7 @@ Storage path supports variables: `{distro}`, `{device}`, `{purpose}`
 
 ## Configuration File
 
-Located at `build/ros2_containers.conf`:
+Located at `build/ros2_container.conf`:
 ```bash
 # Storage path template with variables
 STORAGE_PATH=~/Documents/docker_storage/ros-{distro}
@@ -74,6 +74,6 @@ STORAGE_PATH=~/Documents/docker_storage/ros-{distro}
 # Default values
 DEFAULT_DEVICE=nvidia
 DEFAULT_DISTRO=humble
-WORKSPACE_SUBDIR=ros2_ws/src
+WORKSPACE_SUBDIR=
 ```
 
